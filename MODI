@@ -1,0 +1,171 @@
+import numpy as np
+
+cost = np.array([
+    [3, 19, 3, 4],
+    [15, 2, 5, 10],
+    [7, 17, 6, 2],
+    [10, 8, 3, 2]
+], dtype=float)
+
+allocation = np.array([
+    [20, 0, 0, 0],
+    [0, 15, 15, 0],
+    [0, 0, 0, 25],
+    [10, 0, 10, 5]
+], dtype=float)
+
+rows, cols = cost.shape
+
+
+def calculate_uv(allocation, cost):
+    u = [None] * rows
+    v = [None] * cols
+
+    u[0] = 0
+
+    changed = True
+
+    while changed:
+        changed = False
+
+        for i in range(rows):
+            for j in range(cols):
+                if allocation[i][j] > 0:
+
+                    if u[i] is not None and v[j] is None:
+                        v[j] = cost[i][j] - u[i]
+                        changed = True
+
+                    elif v[j] is not None and u[i] is None:
+                        u[i] = cost[i][j] - v[j]
+                        changed = True
+
+    return np.array(u, dtype=float), np.array(v, dtype=float)
+
+
+def calculate_delta(allocation, cost, u, v):
+    delta = np.zeros((rows, cols))
+
+    for i in range(rows):
+        for j in range(cols):
+            if allocation[i][j] == 0:
+                delta[i][j] = cost[i][j] - u[i] - v[j]
+
+    return delta
+
+
+def find_loop(allocation, start):
+    i0, j0 = start
+
+    for i in range(rows):
+        if i == i0:
+            continue
+
+        if allocation[i][j0] > 0:
+
+            for j in range(cols):
+                if j == j0:
+                    continue
+
+                if allocation[i0][j] > 0 and allocation[i][j] > 0:
+                    return [
+                        (i0, j0),
+                        (i0, j),
+                        (i, j),
+                        (i, j0),
+                        (i0, j0)
+                    ]
+
+    return None
+
+
+iteration = 1
+
+while True:
+
+    print("\n" + "=" * 65)
+    print("MODI ITERATION", iteration)
+    print("=" * 65)
+
+    print("\nCurrent Allocation:")
+    print(allocation)
+
+    u, v = calculate_uv(allocation, cost)
+
+    print("\nu values:", u)
+    print("v values:", v)
+
+    delta = calculate_delta(allocation, cost, u, v)
+
+    print("\nOpportunity Cost Matrix (Delta):")
+    print(delta)
+
+    if np.min(delta) >= 0:
+        print("\nAll opportunity costs are non-negative.")
+        print("Solution is OPTIMAL.")
+        break
+
+    entering = np.unravel_index(np.argmin(delta), delta.shape)
+
+    print(
+        "\nEntering Cell: P{} -> W{}".format(
+            entering[0] + 1,
+            entering[1] + 1
+        )
+    )
+
+    loop = find_loop(allocation, entering)
+
+    print("\nClosed Loop:")
+
+    for cell in loop:
+        print(
+            "(P{}, W{})".format(
+                cell[0] + 1,
+                cell[1] + 1
+            ),
+            end=" "
+        )
+
+    print()
+
+    minus_cells = []
+
+    for k in range(1, len(loop) - 1, 2):
+        minus_cells.append(loop[k])
+
+    theta = min(
+        allocation[i][j]
+        for i, j in minus_cells
+    )
+
+    print("\nTheta =", theta)
+
+    for k in range(len(loop) - 1):
+
+        i, j = loop[k]
+
+        if k % 2 == 0:
+            allocation[i][j] += theta
+        else:
+            allocation[i][j] -= theta
+
+    iteration += 1
+
+
+total_cost = np.sum(allocation * cost)
+
+print("\n" + "=" * 65)
+print("FINAL OPTIMAL SOLUTION")
+print("=" * 65)
+
+print("\nOptimal Allocation:")
+print(allocation)
+
+print("\nMinimum Transportation Cost =", total_cost)
+
+print("\nSupply Check:")
+print(np.sum(allocation, axis=1))
+
+print("\nDemand Check:")
+print(np.sum(allocation, axis=0))
