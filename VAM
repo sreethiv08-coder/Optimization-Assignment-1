@@ -1,0 +1,148 @@
+import numpy as np
+
+cost = np.array([
+    [3, 19, 3, 4],
+    [15, 2, 5, 10],
+    [7, 17, 6, 2],
+    [10, 8, 3, 2]
+], dtype=float)
+supply = np.array([20, 30, 25, 25], dtype=float)
+demand = np.array([30, 15, 25, 30], dtype=float)
+rows, cols = cost.shape
+allocation = np.zeros((rows, cols))
+def calculate_penalties(cost, supply, demand, active_rows, active_cols):
+
+    row_penalties = np.full(rows, -1.0)
+    col_penalties = np.full(cols, -1.0)
+    for i in range(rows):
+
+        if not active_rows[i]:
+            continue
+
+        available = [
+            cost[i][j]
+            for j in range(cols)
+            if active_cols[j] and demand[j] > 0
+        ]
+
+        if len(available) >= 2:
+            available.sort()
+            row_penalties[i] = available[1] - available[0]
+
+        elif len(available) == 1:
+            row_penalties[i] = available[0]
+    for j in range(cols):
+
+        if not active_cols[j]:
+            continue
+
+        available = [
+            cost[i][j]
+            for i in range(rows)
+            if active_rows[i] and supply[i] > 0
+        ]
+
+        if len(available) >= 2:
+            available.sort()
+            col_penalties[j] = available[1] - available[0]
+
+        elif len(available) == 1:
+            col_penalties[j] = available[0]
+
+    return row_penalties, col_penalties
+
+active_rows = [True] * rows
+active_cols = [True] * cols
+
+step = 1
+
+while np.any(supply > 0) and np.any(demand > 0):
+
+    row_penalties, col_penalties = calculate_penalties(
+        cost,
+        supply,
+        demand,
+        active_rows,
+        active_cols
+    )
+
+    print("\n" + "=" * 70)
+    print("STEP", step)
+    print("=" * 70)
+
+    print("Row Penalties:", row_penalties)
+    print("Column Penalties:", col_penalties)
+    max_row = np.max(row_penalties)
+    max_col = np.max(col_penalties)
+
+    if max_row >= max_col:
+
+        selected_row = np.argmax(row_penalties)
+        available_cols = [
+            j for j in range(cols)
+            if active_cols[j] and demand[j] > 0
+        ]
+
+        selected_col = min(
+            available_cols,
+            key=lambda j: cost[selected_row][j]
+        )
+
+        print("Selected: Row P" + str(selected_row + 1))
+
+    else:
+
+        selected_col = np.argmax(col_penalties)
+        available_rows = [
+            i for i in range(rows)
+            if active_rows[i] and supply[i] > 0
+        ]
+
+        selected_row = min(
+            available_rows,
+            key=lambda i: cost[i][selected_col]
+        )
+
+        print("Selected: Column W" + str(selected_col + 1))
+
+    quantity = min(
+        supply[selected_row],
+        demand[selected_col]
+    )
+
+    allocation[selected_row][selected_col] = quantity
+
+    print(
+        "Allocate", quantity,
+        "units to P" + str(selected_row + 1),
+        "-> W" + str(selected_col + 1)
+    )
+
+
+    supply[selected_row] -= quantity
+    demand[selected_col] -= quantity
+
+    if supply[selected_row] == 0:
+        active_rows[selected_row] = False
+
+    if demand[selected_col] == 0:
+        active_cols[selected_col] = False
+
+    step += 1
+
+total_cost = np.sum(allocation * cost)
+
+print("\n" + "=" * 70)
+print("VAM INITIAL BASIC FEASIBLE SOLUTION")
+print("=" * 70)
+
+print("\nAllocation Matrix:")
+print(allocation)
+
+print("\nInitial Transportation Cost =", total_cost)
+
+print("\nRow Supply Check:")
+print(np.sum(allocation, axis=1))
+
+print("\nColumn Demand Check:")
+print(np.sum(allocation, axis=0))
